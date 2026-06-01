@@ -6,6 +6,19 @@ Most agent-memory products (Mem0, Zep, Letta, LangMem) optimize **retrieval qual
 
 Plain files + a permission split. Agent-agnostic, portable, zero retrieval dependency. **Use it on its own** — you do not need any completion machinery to benefit from carrying rules/state/lessons across runs.
 
+## The failure it prevents (30 seconds)
+
+A goal-driven agent, mid-task, finds a stable rule inconvenient and "updates" it — or promotes a self-serving "lesson" that weakens a future check. With ordinary memory (everything writable), that silently succeeds.
+
+```
+WITH agent-memory (control/ read-only, lessons need review):
+  agent edits control/rules.md            → rejected (read-only mount)
+  agent writes to approved_lessons/        → rejected (only candidate_lessons/ is writable)
+  candidate lesson "skip the case check"   → stays PENDING; never auto-applies as authority
+```
+
+The agent can record *proposals*, but cannot rewrite its own authority or self-approve a lesson. `control/` is the trust boundary; `state/` is just its scratchpad. See [`examples/`](examples/).
+
 ## The three layers (by permission, not by content)
 
 ```
