@@ -1,7 +1,7 @@
-# agent-memory
+# agent-lessonbook
 
 <p align="center">
-  <img src="assets/banner.svg" alt="agent-memory — governance-layer memory for AI agents, a permission-separated trust boundary, not retrieval" width="100%">
+  <img src="assets/banner.svg" alt="agent-lessonbook — reviewed memory for AI coding agents: capture corrections and drift lessons, but the worker can't promote its own notes to authority" width="100%">
 </p>
 
 <p align="center">
@@ -9,33 +9,35 @@
 </p>
 
 <p align="center">
-  <img alt="skill" src="https://img.shields.io/badge/agent--skill-agent--memory-1f6feb">
-  <img alt="version" src="https://img.shields.io/badge/version-0.1.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.2.0-informational">
   <img alt="works with" src="https://img.shields.io/badge/Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20any%20agent-444">
   <img alt="no backend" src="https://img.shields.io/badge/no%20vector%2Fgraph-files%20only-2ea043">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
-> **Governance-layer memory for AI agents** — three permission-separated layers so an agent can carry rules, state, and lessons across tasks **without being able to rewrite its own authority**. Not a retrieval engine; a trust boundary. Usable standalone in **any** task, on **any** agent — Claude Code, Codex, and others.
+> **Reviewed memory for AI coding agents.** Capture user corrections, task constraints, and drift lessons during a long task — without letting the worker promote its own notes into project authority.
 
-Most agent-memory products (Mem0, Zep, Letta, LangMem) optimize **retrieval quality** — vector/graph/temporal recall — and assume the agent is cooperative. `agent-memory` solves a different, usually-ignored problem: **a goal-driven agent will quietly downgrade or rewrite "memory" that gets in the way of declaring a task done.** Its core is **who can write what**, not how to embed it.
+AI coding agents already have memory. The failure this targets is narrower: **mid-task, you correct the agent or clarify a requirement — and that lesson either evaporates, or silently becomes future "authority" with no review.**
 
-Plain files + a permission split. Agent-agnostic, portable, zero retrieval dependency. **Use it on its own** — you do not need any completion machinery to benefit from carrying rules/state/lessons across runs.
+- You clarify *"actually, chart titles must include the run name"* — the agent does it once, then forgets next session.
+- The agent drifts, fixes the immediate bug, but never records *why* it drifted — so the next run repeats it.
+- Or worse: the agent quietly rewrites a stable rule it found inconvenient, and nothing stopped it.
 
-## The failure it prevents (30 seconds)
+`agent-lessonbook` is a **project-local review queue** for those moments. The worker can record clarified constraints, corrections, and drift notes, and can *propose* lessons. It **cannot approve its own notes or rewrite project authority** — promotion is a human review step. Plain files that diff and review like code. No vector store, no graph DB, no backend.
 
-A goal-driven agent, mid-task, finds a stable rule inconvenient and "updates" it — or promotes a self-serving "lesson" that weakens a future check. With ordinary memory (everything writable), that silently succeeds.
+> `agent-lessonbook` does not make agents reliably notice their own drift; it captures drift when a user, a verifier, a failing check, or a concrete self-observed error exposes it.
 
-```
-WITH agent-memory (control/ read-only, lessons need review):
-  agent edits control/rules.md            → rejected (read-only mount)
-  agent writes to approved_lessons/        → rejected (only candidate_lessons/ is writable)
-  candidate lesson "skip the case check"   → stays PENDING; never auto-applies as authority
-```
+## Where this fits
 
-The agent can record *proposals*, but cannot rewrite its own authority or self-approve a lesson. `control/` is the trust boundary; `state/` is just its scratchpad. See [`examples/`](examples/).
+You don't replace your existing memory — you add a review boundary on top of it.
 
-## The three layers (by permission, not by content)
+- **Built-in agent memory** (Claude Code, Codex, Copilot): good for recall, preferences, project context.
+- **Memory engines** (Mem0, Zep, Letta, LangMem): good for retrieval, graph memory, personalization, scale.
+- **agent-lessonbook**: decides *which* recorded corrections and lessons are allowed to influence future behavior — review before authority.
+
+> Most memory tools answer *"how do we store and retrieve context?"*. `agent-lessonbook` answers *"which memories are allowed to influence future agent behavior?"*
+
+## The permission model (who can write what)
 
 ```
 🔒 control/   read-only to the worker (human / CI maintains)
@@ -45,47 +47,46 @@ The agent can record *proposals*, but cannot rewrite its own authority or self-a
 
 ✍️ state/     worker-writable, NOT a source of truth
    tasks/<task_id>/
-     run_state.yaml         task checkpoint (belief, not truth) — not cross-task knowledge
-     decision_log.md        decisions / risks during the task
-     candidate_lessons.md   newly observed lessons, PENDING review (no self-approve)
+     run_state.yaml         task checkpoint + active constraints (belief, not truth)
+     correction_journal.md  clarified requirements + drift notes, as they happen
+     candidate_lessons.md   proposed lessons, PENDING human review (no self-approve)
 ```
 
 **Invariants:**
-- Worker **cannot write `control/`** — mount it `read_only` (Claude Code subagent memory / Managed Agents memory stores enforce read_only vs read_write at the filesystem level; use that, don't build your own).
+- The worker **cannot write `control/`** — mount it `read_only` (Claude Code subagent memory / Managed Agents memory stores enforce read_only vs read_write at the filesystem level; use that, don't build your own).
 - `state/` is **working memory, not truth** (`run_state` = "what the agent believes it did").
-- New lessons go to `candidate_lessons.md`; **promotion to `approved_lessons/` is a reviewed action — the worker proposes, never self-approves.**
-- Promotion **cannot weaken enforcement** — completion truth sources (gates, manifests, verifier prompts in [`agent-completion-gate`](https://github.com/zhjai/agent-completion-gate)) are not reachable by lesson promotion.
-
-## Standalone use (any task, not just long ones)
-
-You don't need gates or long-task machinery:
-1. `resume-context` reads `control/rules.md` (e.g. project naming conventions) at start.
-2. Write decisions to `state/.../decision_log.md` as you go.
-3. On wrap-up, `lesson-promote` files keepers into `candidate_lessons.md`.
-
-**Install footprint is provably standalone:** installing `agent-memory` into a fresh project pulls in **no gate files, no gate config, no completion machinery** — just the three layers + two skills.
+- New lessons go to `candidate_lessons.md`; **promotion to `approved_lessons/` is a reviewed action — the worker proposes, never self-approves.** Promotion is a human git action, not something the worker can trigger.
 
 ## Skills (process, not authority)
 
-- [`resume-context`](skills/resume-context/SKILL.md) — load control + task state at start/resume; surface active constraints + relevant lessons.
-- [`lesson-promote`](skills/lesson-promote/SKILL.md) — turn observations into promotion *proposals* (worker proposes only).
+Three skills, all worker-side process — none of them can grant authority:
 
-## vs mainstream memory
+- [`resume-context`](skills/resume-context/SKILL.md) — at start/resume, read `control/` rules + approved lessons + task state, and surface the **active constraints** for this run.
+- [`correction-capture`](skills/correction-capture/SKILL.md) — when the user corrects/clarifies mid-task, *or* drift is exposed (by the user, a check, or a concrete self-observed error), record it to `state/.../correction_journal.md`: what was expected, what happened, likely cause, prevention.
+- [`lesson-propose`](skills/lesson-propose/SKILL.md) — at wrap-up, turn the journal into *candidate* lessons for review, classified by target tier. **Proposes only; never promotes.**
 
-We deliberately ship **no vector/graph backend** (Mem0's documented weakness: multi-store complexity, schema design, paywalled graph, lock-in). Lessons use summary-first frontmatter + an index; add retrieval only if recall volume demands it. Our value is the **governance/permission boundary**, not retrieval — the thing mainstream memory libraries omit.
+Promotion (candidate → `approved_lessons/` or `rules.md`) is deliberately **not a skill** — it's a human review step in git, so the worker can never reach authority through tool use.
+
+## Quick start
+
+```bash
+npx skills add zhjai/agent-lessonbook -g -a claude-code   # or -a codex, cursor, … any host
+```
+
+A normal loop on a long task:
+
+1. **Start:** `resume-context` loads the rules + approved lessons + last task state, and lists the active constraints.
+2. **Mid-task:** you say *"actually, the export must include the month column"* → `correction-capture` writes it to the journal and adds it to the run's active constraints, so it isn't forgotten three steps later.
+3. **Drift exposed:** a check fails / you point out a miss → `correction-capture` records the cause + how to prevent it next time.
+4. **Wrap-up:** `lesson-propose` files the keepers into `candidate_lessons.md`.
+5. **You review** the candidates and promote the good ones into `control/` (a normal git commit). Only then are they authority.
+
+It's just files — `git diff` your `state/` and `control/` like any other change. No backend to run.
 
 ## Pairs with agent-completion-gate
 
-For **long / high-stakes** tasks, add [`agent-completion-gate`](https://github.com/zhjai/agent-completion-gate) — a fail-closed completion gate + four-state machine that reads this kit's read-only `control/` (rules + approved lessons) as the policy it must honor, while bundling its own protected check spec. **agent-memory is the base and stands alone; that kit is the optional enforcement layer on top.**
-
-## Install
-
-```bash
-npx skills add zhjai/agent-memory -g -a claude-code   # Claude Code
-npx skills add zhjai/agent-memory -g -a codex          # Codex
-# … or any other Agent-Skills host — it's plain files + a permission split, no vendor lock-in
-```
+`agent-lessonbook` captures **process lessons during** the work. [`agent-completion-gate`](https://github.com/zhjai/agent-completion-gate) is a separate, standalone tool for **acceptance at the end** (the agent can't self-declare a task complete). They are **independent** — the gate never reads this lessonbook at runtime. The only link is human-mediated: a recurring lesson you review here may prompt *you* to add a check to the gate's protected manifest.
 
 ## Status
 
-`v0.1.0` preview. MIT. Portable, agent-agnostic, file-based, standalone.
+`v0.2.0` preview. MIT. Portable, agent-agnostic, file-based, standalone. (Renamed from `agent-memory`.)

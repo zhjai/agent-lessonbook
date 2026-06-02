@@ -1,5 +1,5 @@
 # approved_lessons/index.yaml — summary-first index of REVIEWED, promoted lessons.
-# Empty at init. `lesson-promote` writes proposals to state/.../candidate_lessons.md;
+# Empty at init. `lesson-propose` writes proposals to state/.../candidate_lessons.md;
 # a human/CI reviews and adds approved entries here (the worker cannot self-approve).
 # resume-context reads this index and loads full lesson files only as needed.
 

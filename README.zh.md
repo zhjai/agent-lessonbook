@@ -1,7 +1,7 @@
-# agent-memory
+# agent-lessonbook
 
 <p align="center">
-  <img src="assets/banner.svg" alt="agent-memory — 面向 AI agent 的治理层记忆，一道按权限隔离的信任边界，而非检索引擎" width="100%">
+  <img src="assets/banner.svg" alt="agent-lessonbook —— 给 AI 编程 agent 用的受控记忆：记录纠正与跑偏教训，但 worker 不能把自己的笔记升级成权威" width="100%">
 </p>
 
 <p align="center">
@@ -9,33 +9,35 @@
 </p>
 
 <p align="center">
-  <img alt="skill" src="https://img.shields.io/badge/agent--skill-agent--memory-1f6feb">
-  <img alt="version" src="https://img.shields.io/badge/version-0.1.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.2.0-informational">
   <img alt="works with" src="https://img.shields.io/badge/Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20any%20agent-444">
   <img alt="no backend" src="https://img.shields.io/badge/no%20vector%2Fgraph-files%20only-2ea043">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
-> **面向 AI agent 的治理层记忆（governance-layer memory）** —— 三个按权限隔离的层，让 agent 能把规则、状态、lesson（经验）跨任务带下去，却**无法改写自己的权限来源**。它不是检索引擎，而是一道信任边界。可在**任何**任务、**任何** agent（Claude Code、Codex 等）上**独立**使用。
+> **给 AI 编程 agent 用的受控记忆。** 在长任务里记录用户的纠正、任务约束和跑偏教训——但不让 worker 把自己的笔记升级成项目权威。
 
-主流 agent 记忆产品（Mem0、Zep、Letta、LangMem）优化的是**检索质量** —— 向量 / 图 / 时序召回 —— 并默认 agent 是配合的。`agent-memory` 解决的是另一个、通常被忽略的问题：**目标驱动的 agent 会悄悄降级或改写挡在它"宣布任务完成"路上的"记忆"。** 它的核心是**谁能写什么**，而不是怎么嵌入。
+AI 编程 agent 本来就有记忆。这工具盯的是一个更窄的失败：**任务进行到一半，你纠正了 agent、或补充了一条要求——结果这条要么转头就被忘了，要么没经任何评审就悄悄变成了往后的"权威"。**
 
-纯文件 + 一次权限切分。Agent 无关、可移植、零检索依赖。**可以单独使用** —— 你不需要任何"完成度校验"机制，就能享受到跨运行携带规则 / 状态 / lesson 的好处。
+- 你说*"其实图表标题里得带上 run name"*——agent 这次照做了，下个 session 又忘了。
+- agent 跑偏了，把眼前的 bug 修了，却没记下*为什么*跑偏——于是下一轮又犯。
+- 更糟的是：agent 嫌某条稳定规则碍事，悄悄把它改了，而没有任何东西拦住它。
 
-## 它防的那个失败（30 秒）
+`agent-lessonbook` 就是为这些时刻准备的一个**项目本地评审队列**。worker 可以记下澄清的约束、纠正、跑偏笔记，也可以*提议* lesson。但它**不能批准自己的笔记，也不能改写项目权威**——提拔是一步人工评审。全是能像代码一样 diff、review 的纯文本文件。没有向量库、没有图数据库、没有后端。
 
-一个目标驱动的 agent 在任务中途，发现某条稳定规则碍事，就"更新"了它 —— 或者提拔了一条对自己有利、却削弱了未来检查的 lesson。在普通记忆里（一切皆可写），这会悄无声息地成功。
+> `agent-lessonbook` 不保证 agent 能自己可靠地发现跑偏；它是在用户、某个 verifier、一个失败的检查、或一次具体的自我观察**把跑偏暴露出来**时，把它记下来。
 
-```
-有了 agent-memory（control/ 只读，lessons 需评审）：
-  agent 改 control/rules.md             → 拒绝（只读挂载）
-  agent 写 approved_lessons/            → 拒绝（只有 candidate_lessons/ 可写）
-  候选 lesson "下次跳过 case 检查"          → 保持 PENDING；永远不会作为权威自动生效
-```
+## 它在整条链路里的位置
 
-agent 可以记录*提案*，但无法改写自己的权限来源，也无法自我批准一条 lesson。`control/` 是信任边界；`state/` 只是它的草稿纸。见 [`examples/`](examples/)。
+你不是拿它替换现有记忆——而是在上面加一道评审边界。
 
-## 三个层（按权限划分，而非按内容）
+- **内置 agent 记忆**（Claude Code、Codex、Copilot）：擅长召回、偏好、项目上下文。
+- **记忆引擎**（Mem0、Zep、Letta、LangMem）：擅长检索、图记忆、个性化、规模化。
+- **agent-lessonbook**：决定*哪些*记下来的纠正和 lesson 有资格影响未来行为——先评审，再授权。
+
+> 大多数 memory 工具回答的是*"怎么存、怎么搜上下文?"*；`agent-lessonbook` 回答的是*"哪些记忆有资格影响未来 agent 行为?"*
+
+## 权限模型（谁能写什么）
 
 ```
 🔒 control/   对 worker 只读（由人 / CI 维护）
@@ -45,47 +47,46 @@ agent 可以记录*提案*，但无法改写自己的权限来源，也无法自
 
 ✍️ state/     worker 可写，但不是真相来源
    tasks/<task_id>/
-     run_state.yaml         任务检查点（是"信念"，不是真相）—— 不是跨任务知识
-     decision_log.md        任务过程中的决策 / 风险
-     candidate_lessons.md   新观察到的 lesson，PENDING 待评审（不能自我批准）
+     run_state.yaml         任务检查点 + 当前活跃约束（是"信念"，不是真相）
+     correction_journal.md  随手记下的澄清要求 + 跑偏笔记
+     candidate_lessons.md   提议的 lesson，PENDING 待人工评审（不能自我批准）
 ```
 
 **不变量（invariants）：**
 - Worker **不能写 `control/`** —— 把它挂成 `read_only`（Claude Code 子 agent 记忆 / Managed Agents 记忆库在文件系统层面区分 read_only 与 read_write，直接用它，别自己造）。
 - `state/` 是**工作记忆，不是真相**（`run_state` = "agent 认为自己做了什么"）。
-- 新 lesson 进 `candidate_lessons.md`；**提拔到 `approved_lessons/` 是一次需评审的动作 —— worker 只能提案，永不自我批准。**
-- 提拔**不能削弱强制力** —— 完成度的真相来源（[`agent-completion-gate`](https://github.com/zhjai/agent-completion-gate) 里的 gate、manifest、verifier prompt）不在 lesson 提拔可触达的范围内。
-
-## 独立使用（任何任务，不只长任务）
-
-你不需要 gate 或长任务机制：
-1. `resume-context` 在开始时读 `control/rules.md`（如项目命名约定）。
-2. 过程中把决策写进 `state/.../decision_log.md`。
-3. 收尾时，`lesson-promote` 把值得留的 lesson 归档进 `candidate_lessons.md`。
-
-**安装足迹可证明是独立的：** 把 `agent-memory` 装进一个全新项目，**不会带进任何 gate 文件、gate 配置或完成度机制** —— 只有三个层 + 两个 skill。
+- 新 lesson 进 `candidate_lessons.md`；**提拔到 `approved_lessons/` 是一次需评审的动作 —— worker 只能提案，永不自我批准。** 提拔是人工的 git 操作，不是 worker 能触发的东西。
 
 ## Skills（流程，不是权威）
 
-- [`resume-context`](skills/resume-context/SKILL.md) —— 在开始 / 恢复时加载 control + 任务 state；浮出活跃约束 + 相关 lesson。
-- [`lesson-promote`](skills/lesson-promote/SKILL.md) —— 把观察变成提拔*提案*（worker 只提案）。
+三个 skill，全是 worker 侧的流程——没有一个能授予权威：
 
-## 对比主流记忆库
+- [`resume-context`](skills/resume-context/SKILL.md) —— 开始 / 恢复时，读 `control/` 的规则 + 已批准 lesson + 任务 state，浮出这一轮的**活跃约束**。
+- [`correction-capture`](skills/correction-capture/SKILL.md) —— 当用户中途纠正 / 澄清，*或者*跑偏被暴露（被用户、一个检查、或一次具体的自我观察）时，记进 `state/.../correction_journal.md`：本该怎样、实际怎样、大概原因、怎么预防。
+- [`lesson-propose`](skills/lesson-propose/SKILL.md) —— 收尾时把日志整理成*候选* lesson 供评审，按目标层级分类。**只提案，绝不提拔。**
 
-我们刻意**不提供向量 / 图后端**（Mem0 被记录的弱点：多存储复杂度、schema 设计、图功能收费、厂商锁定）。lesson 用摘要优先的 frontmatter + 一个索引；只有当召回量真的需要时，再加检索。我们的价值是**治理 / 权限边界**，而非检索 —— 恰恰是主流记忆库省略掉的那一块。
+提拔（候选 → `approved_lessons/` 或 `rules.md`）刻意**不做成 skill**——它是 git 里的一步人工评审，这样 worker 永远没法靠调工具够到权威。
+
+## 快速上手
+
+```bash
+npx skills add zhjai/agent-lessonbook -g -a claude-code   # 也可 -a codex、cursor…… 任何宿主
+```
+
+长任务里的典型循环：
+
+1. **开始：** `resume-context` 加载规则 + 已批准 lesson + 上次的任务 state，并列出活跃约束。
+2. **任务中：** 你说*"其实导出必须带上 month 列"* → `correction-capture` 把它写进日志，并加进本轮的活跃约束，免得三步之后又忘。
+3. **暴露跑偏：** 某个检查失败 / 你指出漏了东西 → `correction-capture` 记下原因 + 下次怎么避免。
+4. **收尾：** `lesson-propose` 把值得留的整理进 `candidate_lessons.md`。
+5. **你来评审** 这些候选，把好的提拔进 `control/`（一次普通的 git commit）。到这一步它们才算权威。
+
+全是文件——像改任何东西一样 `git diff` 你的 `state/` 和 `control/`。没有后端要跑。
 
 ## 与 agent-completion-gate 搭配
 
-对于**长任务 / 高风险**任务，加上 [`agent-completion-gate`](https://github.com/zhjai/agent-completion-gate) —— 一个 fail-closed 的完成度 gate + 四态状态机，它读取本工具的只读 `control/`（规则 + 已批准的 lesson）作为它必须遵守的策略层，同时自带它自己受保护的检查规格。**agent-memory 是地基，可独立站立；那个 kit 是叠在上面的可选强制层。**
-
-## 安装
-
-```bash
-npx skills add zhjai/agent-memory -g -a claude-code   # Claude Code
-npx skills add zhjai/agent-memory -g -a codex          # Codex
-# … 或任何其他 Agent-Skills 宿主 —— 它就是纯文件 + 一次权限切分，无厂商锁定
-```
+`agent-lessonbook` 在干活**过程中**记录过程教训。[`agent-completion-gate`](https://github.com/zhjai/agent-completion-gate) 是另一个独立工具，管**收尾时的验收**（agent 不能自己宣布任务完成）。两者**相互独立**——gate 运行时不读这个 lessonbook。唯一的联系是人来牵线：你在这儿评审出的一条反复出现的 lesson，可能促使*你*去给 gate 的受保护 manifest 加一条检查。
 
 ## 状态
 
-`v0.1.0` 预览版。MIT 许可。可移植、agent 无关、基于文件、可独立使用。
+`v0.2.0` 预览版。MIT。可移植、agent 无关、基于文件、可独立使用。（由 `agent-memory` 改名而来。）
